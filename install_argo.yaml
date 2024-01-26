@@ -1,39 +1,19 @@
 ---
 - hosts: master[0]
+  vars_files:
+    - "./vars/main.yaml"
   gather_facts: false
-  become: true
+  become: false
   tasks:
-    - name: Create argocd namespace
-      shell: kubectl create namespace argocd
-      register: ns_result
-      changed_when: false
+    - name: Transfer Argo CD bash file to master node
+      template:
+       src: templates/install.sh
+       dest: /tmp/argo-cd/
 
-    - name: List all namespaces
-      shell: kubectl get ns
-      changed_when: false
+    - name: Transfer Argo CD ingress to master node
+      template:
+       src: templates/ingress.yaml
+       dest: /tmp/argo-cd/ingress.yaml
 
-    - name: Transfer Argo CD manifests
-      synchronize:
-        src: /templates/
-        dest: /tmp/argo-cd/
-        remote_src: yes
-
-    - name: Deploy the Argo CD on HA mode
-      shell: kubectl apply -f /tmp/argo-cd/install.yaml -n argocd
-
-    - name: Get the service information for Argo CD server
-      shell: kubectl get svc -n argocd
-      changed_when: false
-
-    - name: Patch the Argo CD server service to be of type NodePort
-      shell: kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
-
-    - name: Get the updated service information for Argo CD server
-      shell: kubectl get svc -n argocd
-      changed_when: false
-
-    - name: Get the initial admin password for Argo CD
-      shell: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-
-    - name: Deploy the ingress for Argo CD
-      shell: kubectl apply -f /tmp/argo-cd/ingress.yaml -n argocd
+    - name: Deploy Argo on HA mode
+      shell: bash -f /tmp/argo-cd/install.sh     
